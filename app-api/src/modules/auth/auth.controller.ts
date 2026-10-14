@@ -77,6 +77,7 @@ export class AuthController {
 
   //logout user and invalidate refresh token
   @Post('logout')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
@@ -99,7 +100,6 @@ export class AuthController {
     status: 429,
     description: 'Too Many Requests. Rate limit exceeded',
   })
-  @UseGuards(JwtAuthGuard)
   async logout(@GetUser('id') userId: string): Promise<{ message: string }> {
     await this.authService.logout(userId);
 
