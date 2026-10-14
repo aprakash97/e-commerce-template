@@ -19,7 +19,7 @@ export class RegisterDto {
 
   @ApiProperty({
     description: 'User password',
-    example: 'strong@password123',
+    example: 'StrongPass1!',
   })
   @IsString()
   @IsNotEmpty({ message: 'Password is required' })
@@ -28,7 +28,7 @@ export class RegisterDto {
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
     {
       message:
-        'Password must contain at least one lowercase letter, uppercase letter, number and one special character',
+        'Password must contain at least 8 characters with one lowercase letter, uppercase letter, number and one special character',
     },
   )
   password!: string;

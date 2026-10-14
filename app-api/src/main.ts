@@ -19,6 +19,9 @@ async function bootstrap() {
     }),
   );
 
+  //Project Description
+  app.setGlobalPrefix('api/v1');
+
   app.enableCors({
     origin:
       process.env.ALLOWED_ORIGINS?.split(',') ?? `http://localhost:${port}`,
@@ -69,8 +72,6 @@ async function bootstrap() {
     .swagger-ui .info {margin: 50px 0}`,
   });
 
-  //Project Description
-  app.setGlobalPrefix('api/v1');
   await app.listen(process.env.PORT ?? 3001);
 }
 bootstrap().catch((error) => {
