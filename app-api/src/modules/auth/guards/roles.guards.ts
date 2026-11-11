@@ -2,7 +2,7 @@ import { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Role } from 'generated/prisma/enums';
 import { Observable } from 'rxjs';
-import { ROLES_KEY } from '../common/decorators/roles.decorator';
+import { ROLES_KEY } from '../../../common/decorators/roles.decorator';
 
 export class RoleGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
