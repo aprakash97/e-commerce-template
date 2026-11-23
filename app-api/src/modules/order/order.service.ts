@@ -10,14 +10,21 @@ import {
   OrderResponseDto,
 } from './dto/order-response.dto';
 import { OrderStatus } from 'generated/prisma/enums';
-import { Order, Product } from 'generated/prisma/client';
+import { Order, Product, User } from 'generated/prisma/client';
 import { OrderItem } from 'generated/prisma/browser';
+import { QueryOrderDto } from './dto/query-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
 
 @Injectable()
 export class OrderService {
   constructor(private prisma: PrismaService) {}
 
-  private wrap(order: Order): OrderApiResponseDto<OrderResponseDto> {
+  private wrap(
+    order: Order & {
+      orderItems: (OrderItem & { product: Product })[];
+      user: User;
+    },
+  ): OrderApiResponseDto<OrderResponseDto> {
     return {
       success: true,
       message: 'Order retrieved successfully',
@@ -26,7 +33,10 @@ export class OrderService {
   }
 
   private map(
-    order: Order & { orderItems: (OrderItem & { product: Product })[] },
+    order: Order & {
+      orderItems: (OrderItem & { product: Product })[];
+      user: User;
+    },
   ): OrderResponseDto {
     return {
       id: order.id,
@@ -45,9 +55,12 @@ export class OrderService {
         updatedAt: item.updatedAt,
       })),
       ...(order.user && {
-        userEmail: order.userId.email,
-        userName: order
-      })
+        userEmail: order.user.email,
+        userName: `
+        ${order.user.firstName || ''} ${order.user.lastName || ''}`.trim(),
+      }),
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
     };
   }
 
@@ -112,6 +125,7 @@ export class OrderService {
               product: true,
             },
           },
+          user: true,
         },
       });
 
@@ -126,5 +140,199 @@ export class OrderService {
     });
 
     return this.wrap(order);
+  }
+
+  async findAllForAdmin(query: QueryOrderDto): Promise<{
+    data: OrderResponseDto[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const { page = 1, limit = 10, status, search } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (status) where.status = status;
+    if (search) where.OR = [{ id: { contains: search, mode: 'insensitive' } }];
+
+    const [orders, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          orderItems: {
+            include: {
+              product: true,
+            },
+          },
+          user: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      data: orders.map((o) => this.map(o)),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async findAll(
+    userId: string,
+    query: QueryOrderDto,
+  ): Promise<{
+    data: OrderResponseDto[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const { page = 1, limit = 10, status, search } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = { userId };
+    if (status) where.status = search;
+    if (search) where.OR = [{ id: { contains: search, mode: 'insensitive' } }];
+
+    const [orders, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          orderItems: {
+            include: {
+              product: true,
+            },
+          },
+          user: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+      this.prisma.order.count({
+        where,
+      }),
+    ]);
+
+    return {
+      data: orders.map((o) => this.map(o)),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  //find order by id
+  async findOne(
+    id: string,
+    userId?: string,
+  ): Promise<OrderApiResponseDto<OrderResponseDto>> {
+    const where: any = { id };
+    if (userId) where.userId = userId;
+
+    const order = await this.prisma.order.findFirst({
+      where,
+      include: {
+        orderItems: {
+          include: {
+            product: true,
+          },
+        },
+        user: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Order with Id ${id} not found`);
+    }
+
+    return this.wrap(order);
+  }
+
+  //update order by id
+  async update(
+    id: string,
+    updateOrderDto: UpdateOrderDto,
+    userId?: string,
+  ): Promise<OrderApiResponseDto<OrderResponseDto>> {
+    const where: any = { id };
+    if (userId) where.userId = userId;
+
+    const existing = await this.prisma.order.findFirst({
+      where,
+    });
+
+    if (!existing) throw new NotFoundException(`Order id ${id} not found!`);
+
+    const updated = await this.prisma.order.update({
+      where: { id },
+      data: updateOrderDto,
+      include: {
+        orderItems: {
+          include: {
+            product: true,
+          },
+        },
+        user: true,
+      },
+    });
+
+    return this.wrap(updated);
+  }
+
+  async cancel(
+    id: string,
+    userId?: string,
+  ): Promise<OrderApiResponseDto<OrderResponseDto>> {
+    const where: any = {};
+    if (userId) where.userId = userId;
+
+    const order = await this.prisma.order.findFirst({
+      where,
+      include: {
+        orderItems: true,
+        user: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Order ${id} not fount`);
+    }
+
+    if (order.status !== OrderStatus.PENDING) {
+      throw new BadRequestException('Onl pending orders can be cancelled');
+    }
+
+    const cancelled = await this.prisma.$transaction(async (tx) => {
+      for (const item of order.orderItems) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { increment: item.quantity } },
+        });
+      }
+
+      return tx.order.update({
+        where: { id },
+        data: { status: OrderStatus.CANCELED },
+        include: {
+          orderItems: {
+            include: {
+              product: true,
+            },
+          },
+          user: true,
+        },
+      });
+    });
+
+    return this.wrap(cancelled);
   }
 }
