@@ -17,15 +17,15 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/common/guards/jwt-auth-guard';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth-guard';
 import { RoleGuard } from '../auth/guards/roles.guards';
 import { UsersService } from './users.service';
 import { UserResponseDto } from '../dto/user-response.dto';
-import type { RequestWithUser } from '../auth/common/interfaces/request-with-user-interface';
-import { Roles } from '../auth/common/decorators/roles.decorator';
+import type { RequestWithUser } from '../../common/interfaces/request-with-user-interface';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from 'generated/prisma/enums';
 import { UpdateUserDto } from '../dto/update-user.dto';
-import { GetUser } from '../auth/common/decorators/get-user-decorator';
+import { GetUser } from '../../common/decorators/get-user-decorator';
 import { ChangePasswordDto } from '../dto/change-password.dto';
 
 @ApiTags('users')

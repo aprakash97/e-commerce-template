@@ -19,9 +19,9 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CategoryService } from './category.service';
-import { JwtAuthGuard } from '../auth/common/guards/jwt-auth-guard';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth-guard';
 import { RoleGuard } from '../auth/guards/roles.guards';
-import { Roles } from '../auth/common/decorators/roles.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from 'generated/prisma/enums';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CategoryResponseDto } from './dto/category-response.dto';
